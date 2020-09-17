@@ -16,7 +16,14 @@ module.exports = appInfo => {
   config.keys = appInfo.name + '_1600341648045_8031';
 
   // 在这里添加中间件
-  config.middleware = [];
+  config.middleware = ['errorHandler'];
+
+  // 中间件的配置
+  config.errorHandler = {
+    enable: true, // 是否开启
+    // match: '/user/list', // 中间件的启用条件,可以写成数组
+    // ignore: '/user/list' // 非启用条件 相当于 !match
+  };
 
   // add your user config here
   const userConfig = {
