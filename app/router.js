@@ -21,4 +21,6 @@ module.exports = app => {
   router.post('/friend/setblack/:id', controller.friend.setblack); // 移入移除黑名单
   router.post('/friend/setstar/:id', controller.friend.setstar); // 设置星标
   router.post('/friend/setmomentauth/:id', controller.friend.setMomentAuth); // 设置朋友圈权限
+
+  router.post('/report/save', controller.report.save); // 举报
 };
