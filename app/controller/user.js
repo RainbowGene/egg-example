@@ -3,6 +3,12 @@
 const Controller = require('egg').Controller;
 const crypto = require('crypto')
 
+/**
+ * 数据表迁移:npx sequelize migration:generate --name=friend
+ * 进入 databse/xxxx-friend.js 设计表
+ * 更新数据库 npx sequelize db:migrate
+ */
+
 class UserController extends Controller {
   // 注册
   async reg() {
@@ -68,6 +74,17 @@ class UserController extends Controller {
 
     // 返回token和用户信息
     return ctx.apiSuccess(user)
+  }
+
+  // 退出登录
+  async logout() {
+    const { ctx, service } = this
+    // 拿到当前用户id
+    let current_user_id = ctx.authUser.id
+    // 移除redis的当前用户信息
+    const rd = await service.cache.remove('user_' + current_user_id)
+    if (!rd) ctx.throw(400, '退出失败！')
+    ctx.apiSuccess('退出成功！')
   }
 
   // 验证密码
