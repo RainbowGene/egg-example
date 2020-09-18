@@ -17,4 +17,22 @@ module.exports = {
     enable: true,
     package: 'egg-sequelize'
   },
+
+  // 参数验证
+  valparams: {
+    enable: true,
+    package: 'egg-valparams'
+  },
+
+  // jwt 加密鉴权
+  jwt: {
+    enable: true,
+    package: 'egg-jwt'
+  },
+
+  // redis 缓存
+  redis: {
+    enable: true,
+    package: 'egg-redis'
+  },
 };

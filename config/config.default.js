@@ -70,6 +70,32 @@ module.exports = appInfo => {
     }
   };
 
+  // 参数验证
+  config.valparams = {
+    locale: 'zh-cn',
+    throwError: true
+  };
+
+  // ccrypto加密
+  config.crypto = {
+    secret: 'GeneClycle19970801'
+  };
+
+  // jwt
+  exports.jwt = {
+    secret: 'GeneClycle19970801'
+  };
+
+  // redis
+  config.redis = {
+    client: {
+      port: 6379,          // Redis port
+      host: '127.0.0.1',   // Redis host
+      password: '',
+      db: 0,
+    },
+  }
+
   return {
     ...config,
     ...userConfig,

@@ -1,3 +1,5 @@
+const { app } = require("egg-mock")
+
 module.exports = {
   // api返回成功
   apiSuccess(data = '', msg = 'ok', code = 200) {
@@ -10,5 +12,13 @@ module.exports = {
     // this 直接相当于 ctx
     this.status = code
     this.body = { msg, data }
+  },
+  // 生成token
+  getToken(val) {
+    return this.app.jwt.sign(val, this.app.config.jwt.secret)
+  },
+  // 验证token
+  checkToken(token) {
+    return this.app.jwt.verify(token, this.app.config.jwt.secret)
   }
 }
