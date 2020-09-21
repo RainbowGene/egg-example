@@ -6,11 +6,11 @@ class SearchController extends Controller {
   // 搜索用户
   async user() {
     const { ctx, app } = this
+    let { keyword } = ctx.request.body
 
     ctx.validate({
       keyword: { type: 'string', required: true, desc: '关键字' }
     });
-    let { keyword } = ctx.request.body
     let user = await app.model.User.findOne({
       where: {
         username: keyword
@@ -19,7 +19,8 @@ class SearchController extends Controller {
         exclude: ['password']
       }
     })
-    ctx.body = user
+    if (!user) ctx.throw(400, '无搜索结果')
+    return ctx.apiSuccess(user)
   }
 }
 

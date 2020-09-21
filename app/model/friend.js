@@ -80,10 +80,10 @@ module.exports = app => {
         // });
 
         // 多对多（标签）
-        // Friend.belongsToMany(app.model.Tag, {
-        //     through: 'friend_tag',
-        //     foreignKey: 'friend_id'
-        // })
+        Friend.belongsToMany(app.model.Tag, {
+            through: 'friend_tag',
+            foreignKey: 'friend_id'
+        })
     }
 
     return Friend;

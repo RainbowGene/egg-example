@@ -40,7 +40,7 @@ module.exports = appInfo => {
       enable: false,
     },
     // 跨域白名单
-    domainWhiteList: []
+    domainWhiteList: ['http://localhost:8080']
   };
 
   // 允许跨域的方法

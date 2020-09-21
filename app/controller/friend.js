@@ -40,27 +40,61 @@ class FriendController extends Controller {
     ctx.apiSuccess(friends)
   }
 
-  // 查看好友资料
+  // 查看用户资料
   async read() {
     const { ctx, app } = this
     let current_user_id = ctx.authUser.id;
-    let id = ctx.params.id ? parseInt(ctx.params.id) : 0;
+    let user_id = ctx.params.id ? parseInt(ctx.params.id) : 0;
 
-    // 查询
+    let user = await app.model.User.findOne({
+      where: {
+        id: user_id,
+        status: 1
+      },
+      attributes: {
+        exclude: ['password']
+      }
+    })
+
+    if (!user) ctx.throw(400, '不存在的用户')
+
+    let res = {
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname ? user.nickname : user.username,
+      avatar: user.avatar,
+      sign: user.sign,
+      area: user.area,
+      friend: false
+    }
+
+    // 查询是不是好友
     let friend = await app.model.Friend.findOne({
       where: {
-        friend_id: id,
+        friend_id: user_id,
         user_id: current_user_id
       },
       include: [{
-        model: app.model.User,
-        as: 'friendInfo',
-        attributes: ['id', 'username', 'nickname', 'avatar']
+        model: app.model.Tag,
+        attributes: ['name']
       }]
     })
-    if (!friend) ctx.throw(400, '好友不存在！')
+    if (friend) {
+      res.friend = true
+      if (friend.nickname) {
+        res.nickname = friend.nickname
+      }
+      res = {
+        ...res,
+        lookme: friend.lookme,
+        lookhim: friend.lookhim,
+        star: friend.star,
+        isblack: friend.isblack,
+        tags: friend.tags.map(item => item.name)
+      }
+    }
 
-    ctx.apiSuccess(friend)
+    ctx.apiSuccess(res)
   }
 
   // 移入/移除黑名单
@@ -141,6 +175,94 @@ class FriendController extends Controller {
     await friend.save()
 
     return ctx.apiSuccess('设置成功！')
+  }
+
+  // 设置备注和标签
+  async setremarkTag() {
+    const { ctx, app } = this;
+    let current_user_id = ctx.authUser.id;
+    let id = ctx.params.id ? parseInt(ctx.params.id) : 0;
+    // 参数验证
+    ctx.validate({
+      nickname: { type: 'string', required: false, desc: "昵称" },
+      tags: { type: 'string', required: true, desc: "标签" },
+    });
+    // 查看该好友是否存在
+    let friend = await app.model.Friend.findOne({
+      where: {
+        user_id: current_user_id,
+        friend_id: id,
+        isblack: 0
+      },
+      include: [{
+        model: app.model.Tag
+      }]
+    });
+    if (!friend) {
+      ctx.throw(400, '该记录不存在');
+    }
+
+    let { tags, nickname } = ctx.request.body;
+    // // 设置备注
+    friend.nickname = nickname;
+    await friend.save();
+
+    // 获取当前用户所有标签
+    let allTags = await app.model.Tag.findAll({
+      where: {
+        user_id: current_user_id
+      }
+    });
+
+    let allTagsName = allTags.map(item => item.name);
+
+    // 新标签
+    let newTags = tags.split(',');
+
+    // 需要添加的标签
+    let addTags = newTags.filter(item => !allTagsName.includes(item));
+    addTags = addTags.map(name => {
+      return {
+        name,
+        user_id: current_user_id
+      }
+    });
+    // 写入tag表
+    let resAddTags = await app.model.Tag.bulkCreate(addTags);
+
+    // 找到新标签的id
+    newTags = await app.model.Tag.findAll({
+      where: {
+        user_id: current_user_id,
+        name: newTags
+      }
+    });
+
+    let oldTagsIds = friend.tags.map(item => item.id);
+    let newTagsIds = newTags.map(item => item.id);
+
+    let addTagsIds = newTagsIds.filter(id => !oldTagsIds.includes(id));
+    let delTagsIds = oldTagsIds.filter(id => !newTagsIds.includes(id));
+
+    // 添加关联关系
+    addTagsIds = addTagsIds.map(tag_id => {
+      return {
+        tag_id,
+        friend_id: friend.id
+      }
+    });
+
+    app.model.FriendTag.bulkCreate(addTagsIds);
+
+    // 删除关联关系
+    app.model.FriendTag.destroy({
+      where: {
+        tag_id: delTagsIds,
+        friend_id: friend.id
+      }
+    });
+
+    ctx.apiSuccess('setRemarkAndTags');
   }
 }
 
