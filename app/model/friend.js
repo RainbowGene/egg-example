@@ -74,10 +74,10 @@ module.exports = app => {
             foreignKey: 'friend_id'
         });
 
-        // Friend.belongsTo(app.model.User, {
-        //     as: "userInfo",
-        //     foreignKey: 'user_id'
-        // });
+        Friend.belongsTo(app.model.User, {
+            as: "userInfo",
+            foreignKey: 'user_id'
+        });
 
         // 多对多（标签）
         Friend.belongsToMany(app.model.Tag, {

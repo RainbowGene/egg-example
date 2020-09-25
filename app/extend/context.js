@@ -18,5 +18,18 @@ module.exports = {
   // 验证token
   checkToken(token) {
     return this.app.jwt.verify(token, this.app.config.jwt.secret)
-  }
+  },
+  // 用户上线
+  async online(user_id) {
+    const { service, app } = this;
+    let pid = process.pid;
+    // 下线其他设备
+    let opid = await service.cache.get('online_' + user_id);
+    if (opid) {
+      // 通知对应进程用户下线
+      app.messenger.sendTo(opid, 'offline', user_id);
+    }
+    // 存储上线状态
+    service.cache.set('online_' + user_id, pid);
+  },
 }

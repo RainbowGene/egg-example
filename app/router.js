@@ -16,7 +16,7 @@ module.exports = app => {
   router.get('/apply/:page', controller.apply.list); // 好友申请列表
   router.post('/apply/handle/:id', controller.apply.handle); // 处理好友申请
 
-  router.get('/friend/:page', controller.friend.list); // 好友申请列表
+  router.get('/friend/list', controller.friend.list); // 好友申请列表
   router.get('/friend/read/:id', controller.friend.read); // 查看用户资料
   router.post('/friend/setblack/:id', controller.friend.setblack); // 移入移除黑名单
   router.post('/friend/setstar/:id', controller.friend.setstar); // 设置星标
@@ -34,7 +34,11 @@ module.exports = app => {
     try {
       user = ctx.checkToken(token);
       // 验证用户状态
-      let userCheck = await app.model.User.findByPk(user.id);
+      let userCheck = await app.model.User.findOne({
+        where: {
+          id: user.id
+        }
+      });
       if (!userCheck) {
         ctx.websocket.send(JSON.stringify({
           msg: "fail",
@@ -49,21 +53,21 @@ module.exports = app => {
         }));
         return ctx.websocket.close();
       }
-      // 用户上线 
+      // 用户上线 默认为空对象
       app.ws.user = app.ws.user ? app.ws.user : {};
-      // 下线其他设备
-      // if (app.ws.user[user.id]) {
-      //   app.ws.user[user.id].send(JSON.stringify({
-      //     msg: "fail",
-      //     data: '你的账号在其他设备登录'
-      //   }));
-      //   app.ws.user[user.id].close();
-      // }
-      // 记录当前用户id
+      // 下线其他设备 
+      if (app.ws.user[user.id]) { // 判断上线
+        app.ws.user[user.id].send(JSON.stringify({
+          msg: "fail",
+          data: '你的账号在其他设备登录'
+        }));
+        app.ws.user[user.id].close();
+      }
+      // 记录当前用户id  ctx.websocket.user_id 
       ctx.websocket.user_id = user.id;
       app.ws.user[user.id] = ctx.websocket;
 
-      ctx.online(user.id);
+      // ctx.online(user.id);
 
       await next();
     } catch (err) {
@@ -78,8 +82,9 @@ module.exports = app => {
     }
   });
 
-
-
   // 配置websocket路由
   app.ws.route('/ws', controller.chat.connect)
+
+  // 发送消息
+  router.post('/chat/send', controller.chat.send)
 };
