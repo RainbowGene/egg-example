@@ -15,16 +15,17 @@ class FriendController extends Controller {
       },
       include: [{
         model: app.model.User,
-        as: 'friendInfo',  // 指定我们设置的别名
+        as: "friendInfo",
         attributes: ['id', 'username', 'nickname', 'avatar']
       }]
-    })
+    });
 
     // 查询优化
     let res = friends.rows.map(item => {
-      // 好友备注：昵称有显示昵称，否则显示用户名
-      let name = item.friendInfo.nickname ? item.friendInfo.nickname : item.friendInfo.username
-      if (item.nickname) name = item.nickname
+      let name = item.friendInfo.nickname || item.friendInfo.username;
+      if (item.nickname) {
+        name = item.nickname
+      }
       return {
         id: item.id,
         user_id: item.friendInfo.id,
@@ -32,10 +33,12 @@ class FriendController extends Controller {
         username: item.friendInfo.username,
         avatar: item.friendInfo.avatar
       }
-    })
+    });
 
     // 首字母排序 npm i sort-word -S
-    friends.rows = new SortWord(res, 'name')
+    if (res.length > 0) {
+      friends.rows = new SortWord(res, 'name');
+    }
 
     ctx.apiSuccess(friends)
   }
@@ -44,7 +47,7 @@ class FriendController extends Controller {
   async read() {
     const { ctx, app } = this
     let current_user_id = ctx.authUser.id;
-    let user_id = ctx.params.id ? parseInt(ctx.params.id) : 0;
+    let user_id = ctx.params.id ? parseInt(ctx.params.id) : 0; // 要查询的用户id
 
     let user = await app.model.User.findOne({
       where: {
@@ -106,7 +109,6 @@ class FriendController extends Controller {
       isblack: { type: 'int', range: { in: [0, 1] }, required: true, desc: '黑名单' }
     })
 
-    console.log(id)
     let friend = await app.model.Friend.findOne({
       where: {
         friend_id: id,
@@ -131,7 +133,6 @@ class FriendController extends Controller {
       star: { type: 'int', range: { in: [0, 1] }, required: true, desc: '星标值' }
     })
 
-    console.log(id)
     let friend = await app.model.Friend.findOne({
       where: {
         friend_id: id,

@@ -78,21 +78,21 @@ module.exports = app => {
   });
 
   // 定义关联关系
-  // User.associate = function (model) {
-  //   User.hasMany(app.model.Friend, {
-  //     as: "bfriends", // 当前用户的被好友
-  //     foreignKey: 'friend_id'
-  //   });
+  User.associate = function (model) {
+    User.hasMany(app.model.Friend, {
+      as: "bfriends", // 当前用户的被好友
+      foreignKey: 'friend_id'
+    });
 
-  //   User.hasMany(app.model.Friend, {
-  //     as: "friends", // 当前用户的好友
-  //     foreignKey: 'user_id'
-  //   });
+    User.hasMany(app.model.Friend, {
+      as: "friends", // 当前用户的好友
+      foreignKey: 'user_id'
+    });
 
-  //   User.hasMany(app.model.Moment, {
-  //     foreignKey: 'user_id'
-  //   });
-  // }
+    //   User.hasMany(app.model.Moment, {
+    //     foreignKey: 'user_id'
+    //   });
+  }
 
   return User;
 };

@@ -26,7 +26,7 @@ module.exports = appInfo => {
   };
 
   config.auth = {
-    ignore: ['/reg', '/login']
+    ignore: ['/reg', '/login', '/ws']
   };
 
   // add your user config here
@@ -98,6 +98,21 @@ module.exports = appInfo => {
       password: '',
       db: 0,
     },
+  };
+
+  config.multipart = {
+    mode: 'file'
+  };
+
+  // oss存储
+  config.oss = {
+    client: {
+      accessKeyId: 'LTAI4G1qkfCPaGKzp87guzoW',
+      accessKeySecret: 'XdgnmrSsJFuRaN17jhkAwpAw5Uvsdb',
+      bucket: 'egg-uniapp-foxxin',
+      endpoint: 'oss-cn-shenzhen.aliyuncs.com',
+      timeout: '60s'
+    }
   }
 
   return {

@@ -41,4 +41,10 @@ module.exports = {
     enable: true,
     package: 'egg-websocket-plugin',
   },
+
+  // 文件上传
+  oss: {
+    enable: true,
+    package: 'egg-oss',
+  }
 };

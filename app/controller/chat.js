@@ -9,8 +9,6 @@ class ChatController extends Controller {
       ctx.throw(400, '非法访问');
     }
 
-    // console.log(`clients: ${app.ws.clients.size}`);
-
     // 监听接收消息和关闭socket
     ctx.websocket
       .on('message', msg => {
@@ -92,6 +90,7 @@ class ChatController extends Controller {
       if (!Friend.userInfo.status) {
         return ctx.apiFail('对方已被禁用');
       }
+      // return ctx.apiSuccess(Friend)
       // 构建消息格式
       let from_name = Friend.friendInfo.nickname ? Friend.friendInfo.nickname : Friend.friendInfo.username;
       if (Friend.nickname) {
@@ -113,28 +112,72 @@ class ChatController extends Controller {
         isremove: 0, // 是否撤回
       }
 
-      // 拿到对方的socket
-      let socket = app.ws.user[to_id]
-      // 验证是否在线,不在线接收到待接收队列消息(redis)中，在线则推送消息
-      if (!socket) {
-        this.service.cache.setList('getmessage_' + to_id, message);
+      // 视频，截取封面
+      if (message.type === 'video') {
+        message.options.poster = message.data + '?x-oss-process=video/snapshot,t_10,m_fast,w_300,f_png';
       }
-      else {
-        // 消息推送
-        socket.send(JSON.stringify({
-          msg: 'ok',
-          data: message
-        }))
-        // 存到服务器历史记录(便于查询用户是否违规)
-        service.cache.setList(`chatlog_${to_id}_user_${current_user_id}`, message)
-      }
-      // 存到自己的历时记录
-      service.cache.setList(`chatlog_${current_user_id}_user_${to_id}`, message)
+
+      // 上诉代码我们封装到 context 中
+      await ctx.sendAndSaveMessage(to_id, message)
 
       return ctx.apiSuccess(message)
     }
+
     // 群聊
-    return ctx.apiSuccess('群聊')
+    // 验证群聊是否存在，且本人在群中
+    let group = await app.model.Group.findOne({
+      where: {
+        id: to_id,
+        status: 1
+      },
+      include: [{
+        model: app.model.GroupUser,
+        attributes: ['user_id', 'nickname']
+      }]
+    })
+
+    if (!group) return ctx.apiFail('该群聊不存在！')
+    let index = group.group_users.findIndex(item => item.user_id === current_user_id)
+    if (index === -1) return ctx.apiFail('你不是该群聊成员！')
+    // 数据格式
+    let from_name = group.group_users[index].nickname // 我在群里的昵称
+    let message = {
+      id: (new Date()).getTime(), // 唯一id，后端生成唯一id
+      from_avatar: ctx.authUser.avatar,// 发送者头像
+      from_name: from_name || ctx.authUser.nickname || ctx.authUser.username, // 发送者昵称
+      from_id: current_user_id, // 发送者id
+      to_id, // 接收人/群 id
+      to_name: group.name, // 接收人/群 名称
+      to_avatar: group.avatar, // 接收人/群 头像
+      chat_type: 'group', // 接收类型
+      type,// 消息类型
+      data, // 消息内容
+      options: {}, // 其他参数
+      create_time: (new Date()).getTime(), // 创建时间
+      isremove: 0, // 是否撤回
+      group: group
+    }
+    // 批量推送群消息: 不推送自己
+    await group.group_users.filter(item => item.user_id !== current_user_id).forEach(item => {
+      ctx.sendAndSaveMessage(item.user_id, message)
+    })
+
+    return ctx.apiSuccess(message)
+  }
+
+  // 获取离线消息
+  async getmessage() {
+    const { ctx, app, service } = this;
+    let current_user_id = ctx.authUser.id;
+    let key = 'getmessage_' + current_user_id;
+    let list = await service.cache.getList(key);
+    // 清除离线消息
+    await service.cache.remove(key);
+    // 消息推送
+    list.forEach(async msg => {
+      msg = JSON.parse(msg);
+      ctx.sendAndSaveMessage(current_user_id, msg)
+    })
   }
 }
 

@@ -70,7 +70,7 @@ module.exports = app => {
     Friend.associate = function (model) {
         // 反向一对多
         Friend.belongsTo(app.model.User, {
-            as: "friendInfo",  // 别名
+            as: "friendInfo",
             foreignKey: 'friend_id'
         });
 

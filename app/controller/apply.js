@@ -4,50 +4,77 @@ const Controller = require('egg').Controller;
 
 class ApplyController extends Controller {
   async addfriend() {
-    const { ctx, app } = this
-    // 拿到当前用户
+    const { ctx, app } = this;
+    // 拿到当前用户id
     let current_user_id = ctx.authUser.id;
     // 验证参数
     ctx.validate({
-      friend_id: { type: 'int', required: true, desc: '对方id' },
-      nickname: { type: 'string', required: false, desc: '昵称' },
-      lookme: { type: 'int', required: true, range: { in: [0, 1] }, desc: '看我' },
-      lookhim: { type: 'int', required: true, range: { in: [0, 1] }, desc: '看他' }
+      friend_id: {
+        type: 'int',
+        required: true,
+        desc: '好友id'
+      },
+      nickname: {
+        type: 'string',
+        required: false,
+        desc: '昵称'
+      },
+      lookme: {
+        type: 'int',
+        required: true,
+        range: {
+          in: [0, 1]
+        },
+        desc: '看我'
+      },
+      lookhim: {
+        type: 'int',
+        range: {
+          in: [0, 1]
+        },
+        required: true,
+        desc: '看他'
+      },
     });
-    let { friend_id, nickname, lookme, lookhim } = ctx.request.body
+    let { friend_id, nickname, lookme, lookhim } = ctx.request.body;
     // 不能添加自己
-    if (current_user_id === friend_id) ctx.throw(400, '不能添加自己')
-
+    if (current_user_id === friend_id) {
+      ctx.throw(400, "不能添加自己");
+    }
     // 对方是否存在
     let user = await app.model.User.findOne({
       where: {
         id: friend_id,
         status: 1
       }
-    })
-    if (!user) ctx.throw(400, '用户不存在或者已被禁用!')
-
+    });
+    if (!user) {
+      ctx.throw(400, '该用户不存在或者已被禁用');
+    }
     // 之前是否申请过了
-    let apply = await app.model.Apply.findOne({
+    if (await app.model.Apply.findOne({
       where: {
         user_id: current_user_id,
         friend_id,
-        status: ['pending', 'agree'] //待处理或者已同意
+        status: ['pending', 'agree']
       }
-    })
-    if (apply) ctx.throw(400, '请等待对方通过申请！')
-
+    })) {
+      ctx.throw(400, '你之前已经申请过了');
+    }
     // 创建申请
-    let res = await app.model.Apply.create({
+    let apply = await app.model.Apply.create({
       user_id: current_user_id,
       friend_id,
       lookme,
       lookhim,
       nickname
-    })
-    if (!res) ctx.throw(400, '申请创建失败！')
-
-    return ctx.apiSuccess('申请已发送！')
+    });
+    if (!apply) {
+      ctx.throw(400, '申请失败');
+    }
+    ctx.apiSuccess(apply);
+    // 消息推送
+    ctx.send(friend_id, '', "updateApplyList");
   }
 
   // 获取好友申请列表
@@ -87,81 +114,120 @@ class ApplyController extends Controller {
 
   // 处理好友申请
   async handle() {
-    const { ctx, app } = this
+    const { ctx, app } = this;
     let current_user_id = ctx.authUser.id;
-    let id = ctx.params.id ? parseInt(ctx.params.id) : -1
-
+    let id = parseInt(ctx.params.id)
+    // 参数验证
     ctx.validate({
-      nickname: { type: 'string', required: false, desc: '昵称' },
-      status: { type: 'string', required: true, range: { in: ['refuse', 'agree', 'ignore'] }, desc: '处理结果' },
-      lookme: { type: 'int', required: true, range: { in: [0, 1] }, desc: '看我' },
-      lookhim: { type: 'int', required: true, range: { in: [0, 1] }, desc: '看他' }
+      nickname: {
+        type: 'string',
+        required: false,
+        desc: '昵称'
+      },
+      status: {
+        type: 'string',
+        required: true,
+        range: {
+          in: ['refuse', 'agree', 'ignore']
+        },
+        desc: '处理结果'
+      },
+      lookme: {
+        type: 'int',
+        required: true,
+        range: {
+          in: [0, 1]
+        },
+        desc: '看我'
+      },
+      lookhim: {
+        type: 'int',
+        range: {
+          in: [0, 1]
+        },
+        required: true,
+        desc: '看他'
+      },
     });
-
-    // 查询申请是否存在
+    // 查询该申请是否存在
     let apply = await app.model.Apply.findOne({
       where: {
         id,
         friend_id: current_user_id,
         status: "pending"
-      }
-    })
-    if (!apply) ctx.throw(400, '该申请不存在！')
-
-    let { status, nickname, lookhim, lookme } = ctx.request.body
-    // 使用事务
+      },
+      include: [{
+        model: app.model.User
+      }]
+    });
+    if (!apply) {
+      ctx.throw(400, '该记录不存在');
+    }
+    let { status, nickname, lookme, lookhim } = ctx.request.body;
     let transaction;
     try {
       // 开启事务
       transaction = await app.model.transaction();
 
-      //设置申请状态 agree 同意
+      // 设置该申请状态
       await apply.update({
         status
-      }, { transaction })
-
-      if (status == 'agree') { // 同意才去添加去操作
-        // 加入对方好友列表
-        if (!await app.model.Friend.findOne({ // 对方列表不存在我
-          where: {
-            friend_id: current_user_id,
-            user_id: apply.user_id
-          }
-        })) { // 创建
-          await app.model.Friend.create({
-            friend_id: current_user_id,
-            user_id: apply.user_id,
-            nickname: apply.nickname,
-            lookhim: apply.lookhim,
-            lookme: apply.lookme
-          })
-        }
-
-        // 将对方列表加入我的好友列表
-        if (!await app.model.Friend.findOne({ // 对方不存在我的好友列表
-          where: {
-            friend_id: apply.user_id,
-            user_id: current_user_id
-          }
-        })) { // 创建
-          await app.model.Friend.create({
-            friend_id: apply.user_id,
-            user_id: current_user_id,
-            nickname,
-            lookhim,
-            lookme
-          })
-        }
+      }, { transaction });
+      // 同意的话，添加到好友列表中
+      if (status == 'agree') {
+        // 加入到对方好友列表
+        await app.model.Friend.create({
+          friend_id: current_user_id,
+          user_id: apply.user_id,
+          nickname: apply.nickname,
+          lookme: apply.lookme,
+          lookhim: apply.lookhim,
+        }, { transaction });
+        // 将对方加入到我的好友列表
+        await app.model.Friend.create({
+          friend_id: apply.user_id,
+          user_id: current_user_id,
+          nickname,
+          lookme,
+          lookhim,
+        }, { transaction });
       }
-
       // 提交事务
-      await transaction.commit()
+      await transaction.commit();
       // 消息推送
-      return ctx.apiSuccess('好友申请处理成功')
+      // if (status == 'agree') {
+      //     let message = {
+      //         id: (new Date()).getTime(), // 唯一id，后端生成唯一id
+      //         from_avatar: ctx.authUser.avatar,// 发送者头像
+      //         from_name: apply.nickname || ctx.authUser.nickname || ctx.authUser.username, // 发送者昵称
+      //         from_id: current_user_id, // 发送者id
+      //         to_id: apply.user_id, // 接收人/群 id
+      //         to_name: nickname || apply.user.nickname || apply.user.username, // 接收人/群 名称
+      //         to_avatar: apply.user.avatar, // 接收人/群 头像
+      //         chat_type: 'user', // 接收类型
+      //         type: "system",// 消息类型
+      //         data: "你们已经是好友，可以开始聊天啦", // 消息内容
+      //         options: {}, // 其他参数
+      //         create_time: (new Date()).getTime(), // 创建时间
+      //         isremove: 0, // 是否撤回
+      //     }
+      //     ctx.sendAndSaveMessage(apply.user_id, { ...message });
+
+      //     message.from_avatar = apply.user.avatar;
+      //     message.from_name = nickname || apply.user.nickname || apply.user.username;
+      //     message.from_id = apply.user.id;
+
+      //     message.to_avatar = ctx.authUser.avatar;
+      //     message.to_name = apply.nickname || ctx.authUser.nickname || ctx.authUser.username;
+      //     message.to_id = current_user_id;
+
+      //     ctx.sendAndSaveMessage(current_user_id, { ...message });
+      // }
+      return ctx.apiSuccess('操作成功');
     } catch (e) {
       // 事务回滚
       await transaction.rollback();
-      return ctx.apiFail('处理失败')
+      return ctx.apiFail('操作失败');
     }
   }
 }

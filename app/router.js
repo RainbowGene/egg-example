@@ -87,4 +87,28 @@ module.exports = app => {
 
   // 发送消息
   router.post('/chat/send', controller.chat.send)
+  // 离线消息
+  router.post('/chat/getmessage', controller.chat.getmessage)
+
+  // 创建群聊
+  router.post('/group/create', controller.group.create)
+  // 群聊列表
+  router.get('/group/:page', controller.group.list)
+  // 查看群资料
+  router.get('/group_info/:id', controller.group.info)
+  // 修改群名称
+  router.post('/group/rename', controller.group.rename)
+  // 群公告
+  router.post('/group/remark', controller.group.remark)
+  // 修改我的昵称
+  router.post('/group/nickname', controller.group.nickname)
+  // 删除并退出群聊
+  router.post('/group/quit', controller.group.quit)
+  // 生成群二维码
+  router.get('/group_qrcode/:id', controller.group.qrcode)
+  // 生成个人名片二维码
+  router.get('/user_qrcode/:id', controller.user.qrcode)
+
+  // 文件上传
+  router.post('/upload', controller.common.upload)
 };

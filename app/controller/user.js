@@ -1,7 +1,8 @@
 'use strict';
 
 const Controller = require('egg').Controller;
-const crypto = require('crypto')
+const crypto = require('crypto');
+const { jsonp } = require('../../config/plugin');
 
 /**
  * 数据表迁移:npx sequelize migration:generate --name=friend
@@ -56,10 +57,11 @@ class UserController extends Controller {
         status: 1 // 验证用户是否启用
       }
     })
-    // 验证密码
-    await this.checkPassword(password, user.password);
 
     if (!user) ctx.throw(400, '不存在的用户或已被禁用')
+
+    // 验证密码
+    await this.checkPassword(password, user.password);
 
     // 生成token:jwt加密鉴权
     user = JSON.parse(JSON.stringify(user))
@@ -89,13 +91,23 @@ class UserController extends Controller {
 
   // 验证密码
   async checkPassword(password, hash_password) {
-    const hmac = crypto.createHash('sha256', this.app.config.crypto.secret);
+    const hmac = crypto.createHash('sha256', this.app.config.crypto.secret)
     hmac.update(password)
     password = hmac.digest('hex')
     let bool = password === hash_password
     if (!bool) this.ctx.throw(400, '密码错误')
     return bool
   }
+  
+  // 生成个人二维码
+  async qrcode() {
+    const { ctx, app } = this
+    ctx.qrcode(JSON.stringify({
+      id:1, // 个人id
+    }))
+  }
 }
 
 module.exports = UserController;
+
+
