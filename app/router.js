@@ -109,6 +109,15 @@ module.exports = app => {
   // 生成个人名片二维码
   router.get('/user_qrcode/:id', controller.user.qrcode)
 
-  // 文件上传
+  // 文件上传: 要有网络
   router.post('/upload', controller.common.upload)
+  // 撤回消息
+  router.post('/recall', controller.chat.recall)
+
+  // 创建收藏
+  router.post('/fava/create', controller.fava.create)
+  // 收藏列表
+  router.get('/fava/:page', controller.fava.list)
+  // 删除收藏
+  router.post('/fava/destroy', controller.fava.destroy)
 };

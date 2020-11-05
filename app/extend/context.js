@@ -34,7 +34,7 @@ module.exports = {
     service.cache.set('online_' + user_id, pid);
   },
   // 发送或者存到消息队列
-  sendAndSaveMessage(to_id, message) {
+  async sendAndSaveMessage(to_id, message, msg = 'ok') {
     const { app, service } = this
     let current_user_id = this.authUser.id
     // 拿到对方的socket:如果没有任何对象（即无人连接会导致报错）
@@ -43,7 +43,7 @@ module.exports = {
     if (app.ws.user && app.ws.user[to_id]) {
       // 消息推送
       app.ws.user[to_id].send(JSON.stringify({
-        msg: 'ok',
+        msg,
         data: message
       }))
       // 存到服务器历史记录(便于查询用户是否违规)

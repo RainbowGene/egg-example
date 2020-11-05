@@ -1,5 +1,7 @@
 'use strict';
 
+const { AppWorkerLoader } = require('egg');
+
 const Controller = require('egg').Controller;
 
 class ChatController extends Controller {
@@ -117,6 +119,12 @@ class ChatController extends Controller {
         message.options.poster = message.data + '?x-oss-process=video/snapshot,t_10,m_fast,w_300,f_png';
       }
 
+      // 音频 带上时长
+      if (message.type === 'audio') {
+        options = JSON.parse(options);
+        message.options.time = options.time || 1
+      }
+
       // 上诉代码我们封装到 context 中
       await ctx.sendAndSaveMessage(to_id, message)
 
@@ -157,6 +165,18 @@ class ChatController extends Controller {
       isremove: 0, // 是否撤回
       group: group
     }
+
+    // 视频，截取封面
+    if (message.type === 'video') {
+      message.options.poster = message.data + '?x-oss-process=video/snapshot,t_10,m_fast,w_300,f_png';
+    }
+
+    // 音频 带上时长
+    if (message.type === 'audio') {
+      options = JSON.parse(options);
+      message.options.time = options.time || 1
+    }
+
     // 批量推送群消息: 不推送自己
     await group.group_users.filter(item => item.user_id !== current_user_id).forEach(item => {
       ctx.sendAndSaveMessage(item.user_id, message)
@@ -171,13 +191,73 @@ class ChatController extends Controller {
     let current_user_id = ctx.authUser.id;
     let key = 'getmessage_' + current_user_id;
     let list = await service.cache.getList(key);
-    // 清除离线消息
+    // 清除离线消息  
     await service.cache.remove(key);
     // 消息推送
     list.forEach(async msg => {
       msg = JSON.parse(msg);
       ctx.sendAndSaveMessage(current_user_id, msg)
     })
+  }
+
+  // 撤回消息
+  async recall() {
+    const { ctx, app } = this;
+    let current_user_id = ctx.authUser.id;
+
+    ctx.validate({
+      to_id: {
+        type: 'int',
+        required: true,
+        desc: '接收人/群id'
+      },
+      chat_type: {
+        type: 'string',
+        required: true,
+        range: {
+          in: ['user', 'group']
+        },
+        desc: '接收类型'
+      },
+      id: {
+        type: 'int',
+        required: true,
+        desc: '消息id'
+      }
+    });
+
+    let { to_id, chat_type, id } = ctx.request.body;
+    let message = {
+      from_id: current_user_id,
+      to_id,
+      chat_type,
+      id
+    }
+    // 单聊
+    if (chat_type === 'user') {
+      ctx.sendAndSaveMessage(to_id, message, 'recall');
+      return ctx.apiSuccess(message);
+    }
+    // 群聊
+    let group = await app.model.Group.findOne({
+      where: {
+        id: to_id,
+        status: 1
+      },
+      include: [{
+        model: app.model.GroupUser,
+        attributes: ['user_id']
+      }]
+    });
+
+    if (group) {
+      group.group_users.forEach(item => {
+        if (item.user_id !== current_user_id) {
+          ctx.sendAndSaveMessage(item.user_id, message, 'recall');
+        }
+      });
+    }
+    return ctx.apiSuccess(message);
   }
 }
 
