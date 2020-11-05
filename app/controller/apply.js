@@ -3,6 +3,7 @@
 const Controller = require('egg').Controller;
 
 class ApplyController extends Controller {
+  // 添加好友
   async addfriend() {
     const { ctx, app } = this;
     // 拿到当前用户id
@@ -73,8 +74,13 @@ class ApplyController extends Controller {
       ctx.throw(400, '申请失败');
     }
     ctx.apiSuccess(apply);
+
     // 消息推送
-    ctx.send(friend_id, '', "updateApplyList");
+    if (app.ws.user && app.ws.user[friend_id]) {
+      app.ws.user[friend_id].send(JSON.stringify({
+        msg: 'updateApplyList'  
+      }))
+    }
   }
 
   // 获取好友申请列表

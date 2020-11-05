@@ -61,10 +61,10 @@ class ChatController extends Controller {
         required: true,
         desc: '消息内容'
       },
-      // options: {
-      //   type: 'string',
-      //   required: true
-      // }
+      options: {
+        type: 'string',
+        required: true
+      }
     });
     // 获取参数
     let { to_id, chat_type, type, data, options } = ctx.request.body;
@@ -125,8 +125,13 @@ class ChatController extends Controller {
         message.options.time = options.time || 1
       }
 
-      // 上诉代码我们封装到 context 中
-      await ctx.sendAndSaveMessage(to_id, message)
+      // 名片
+      if (message.type === 'card') {
+        // 验证名片中的用户
+        message.options = JSON.parse(options);
+      }
+
+      ctx.sendAndSaveMessage(to_id, message)
 
       return ctx.apiSuccess(message)
     }
@@ -175,6 +180,12 @@ class ChatController extends Controller {
     if (message.type === 'audio') {
       options = JSON.parse(options);
       message.options.time = options.time || 1
+    }
+
+    // 名片
+    if (message.type === 'card') {
+      // 验证名片中的用户
+      message.options = JSON.parse(options);
     }
 
     // 批量推送群消息: 不推送自己
