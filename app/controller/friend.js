@@ -265,6 +265,46 @@ class FriendController extends Controller {
 
     ctx.apiSuccess('setRemarkAndTags');
   }
+
+  // 删除好友
+  async destroy() {
+    const { ctx, qpp } = this
+    let current_user_id = ctx.authUser.id;
+    ctx.validate({
+      friend_id: {
+        type: "int",
+        required: true,
+        desc: "好友id"
+      }
+    });
+    let { friend_id } = ctx.request.body;
+    await app.model.Friend.destroy({
+      where: {
+        user_id: current_user_id,
+        friend_id
+      }
+    });
+
+    ctx.apiSuccess('ok');
+
+    app.model.Friend.destroy({
+      where: {
+        user_id: friend_id,
+        friend_id: current_user_id
+      }
+    });
+
+    this.deleteTimeLineMoment(friend_id, current_user_id);
+    this.deleteTimeLineMoment(current_user_id, friend_id);
+
+    // 删除apply表对应数据
+    app.model.Apply.destroy({
+      where: {
+        user_id: current_user_id,
+        friend_id: friend_id
+      }
+    });
+  }
 }
 
 module.exports = FriendController;

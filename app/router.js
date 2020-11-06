@@ -120,4 +120,15 @@ module.exports = app => {
   router.get('/fava/:page', controller.fava.list)
   // 删除收藏
   router.post('/fava/destroy', controller.fava.destroy)
+  // 修改个人资料
+  router.post('/user/update', controller.user.update)
+  // 删除好友
+  router.post('/friend/destroy', controller.friend.destroy);
+
+  // 发布朋友圈
+  router.post('/moment/create', controller.moment.create);
+  // 点赞朋友圈
+  router.post('/moment/like', controller.moment.like);
+  // 评论朋友圈
+  router.post('/moment/comment', controller.moment.comment);
 };

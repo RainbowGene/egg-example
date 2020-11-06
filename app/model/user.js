@@ -89,9 +89,9 @@ module.exports = app => {
       foreignKey: 'user_id'
     });
 
-    //   User.hasMany(app.model.Moment, {
-    //     foreignKey: 'user_id'
-    //   });
+    User.hasMany(app.model.Moment, {
+      foreignKey: 'user_id'
+    });
   }
 
   return User;

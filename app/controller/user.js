@@ -98,13 +98,40 @@ class UserController extends Controller {
     if (!bool) this.ctx.throw(400, '密码错误')
     return bool
   }
-  
+
   // 生成个人二维码
   async qrcode() {
     const { ctx, app } = this
     ctx.qrcode(JSON.stringify({
-      id:1, // 个人id
+      id: 1, // 个人id
     }))
+  }
+
+  // 修改个人资料
+  async update() {
+    const { ctx, app } = this;
+
+    ctx.validate({
+      avatar: {
+        type: 'url',
+        required: false,
+        defValue: "",
+        desc: '头像'
+      },
+      nickname: {
+        type: 'string',
+        required: false,
+        defValue: "",
+        desc: '昵称'
+      },
+    });
+
+    let { avatar, nickname } = ctx.request.body;
+    ctx.authUser.avatar = avatar;
+    ctx.authUser.nickname = nickname;
+    await ctx.authUser.save();
+
+    return ctx.apiSuccess('ok');
   }
 }
 

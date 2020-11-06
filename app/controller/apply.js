@@ -78,7 +78,7 @@ class ApplyController extends Controller {
     // 消息推送
     if (app.ws.user && app.ws.user[friend_id]) {
       app.ws.user[friend_id].send(JSON.stringify({
-        msg: 'updateApplyList'  
+        msg: 'updateApplyList'
       }))
     }
   }
@@ -201,34 +201,36 @@ class ApplyController extends Controller {
       // 提交事务
       await transaction.commit();
       // 消息推送
-      // if (status == 'agree') {
-      //     let message = {
-      //         id: (new Date()).getTime(), // 唯一id，后端生成唯一id
-      //         from_avatar: ctx.authUser.avatar,// 发送者头像
-      //         from_name: apply.nickname || ctx.authUser.nickname || ctx.authUser.username, // 发送者昵称
-      //         from_id: current_user_id, // 发送者id
-      //         to_id: apply.user_id, // 接收人/群 id
-      //         to_name: nickname || apply.user.nickname || apply.user.username, // 接收人/群 名称
-      //         to_avatar: apply.user.avatar, // 接收人/群 头像
-      //         chat_type: 'user', // 接收类型
-      //         type: "system",// 消息类型
-      //         data: "你们已经是好友，可以开始聊天啦", // 消息内容
-      //         options: {}, // 其他参数
-      //         create_time: (new Date()).getTime(), // 创建时间
-      //         isremove: 0, // 是否撤回
-      //     }
-      //     ctx.sendAndSaveMessage(apply.user_id, { ...message });
+      if (status == 'agree') {
+        let message = {
+          id: (new Date()).getTime(), // 唯一id，后端生成唯一id
+          from_avatar: ctx.authUser.avatar,// 发送者头像
+          from_name: apply.nickname || ctx.authUser.nickname || ctx.authUser.username, // 发送者昵称
+          from_id: current_user_id, // 发送者id
+          to_id: apply.user_id, // 接收人/群 id
+          to_name: nickname || apply.user.nickname || apply.user.username, // 接收人/群 名称
+          to_avatar: apply.user.avatar, // 接收人/群 头像
+          chat_type: 'user', // 接收类型
+          type: "system",// 消息类型
+          data: "你们已经是好友，可以开始聊天啦", // 消息内容
+          options: {}, // 其他参数
+          create_time: (new Date()).getTime(), // 创建时间
+          isremove: 0, // 是否撤回
+        }
+        // 发送对方
+        ctx.sendAndSaveMessage(apply.user_id, message);
 
-      //     message.from_avatar = apply.user.avatar;
-      //     message.from_name = nickname || apply.user.nickname || apply.user.username;
-      //     message.from_id = apply.user.id;
+        // 发送自己
+        message.from_avatar = apply.user.avatar;
+        message.from_name = nickname || apply.user.nickname || apply.user.username;
+        message.from_id = apply.user.id;
 
-      //     message.to_avatar = ctx.authUser.avatar;
-      //     message.to_name = apply.nickname || ctx.authUser.nickname || ctx.authUser.username;
-      //     message.to_id = current_user_id;
+        message.to_avatar = ctx.authUser.avatar;
+        message.to_name = apply.nickname || ctx.authUser.nickname || ctx.authUser.username;
+        message.to_id = current_user_id;
 
-      //     ctx.sendAndSaveMessage(current_user_id, { ...message });
-      // }
+        ctx.sendAndSaveMessage(current_user_id, message);
+      }
       return ctx.apiSuccess('操作成功');
     } catch (e) {
       // 事务回滚
