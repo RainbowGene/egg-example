@@ -419,8 +419,311 @@ class GroupController extends Controller {
   async qrcode() {
     const { ctx, app } = this
     ctx.qrcode(JSON.stringify({
-      id:1, // 群组id
+      id: 1, // 群组id
     }))
+  }
+
+  // 踢出某个群成员
+  async kickoff() {
+    const { ctx, app } = this
+    let current_user_id = ctx.authUser.id
+
+    // 参数验证
+    ctx.validate({
+      id: {
+        required: true,
+        type: 'int',
+        desc: "群组id"
+      },
+      user_id: {
+        required: true,
+        type: 'int',
+        desc: "用户id"
+      }
+    });
+    let { id, user_id } = ctx.request.body;
+    // 是否存在
+    let group = await app.model.Group.findOne({
+      where: {
+        id,
+        status: 1
+      },
+      include: [{
+        model: app.model.GroupUser,
+        attributes: ['user_id', 'nickname'],
+        include: [{
+          model: app.model.User,
+          attributes: ['username', 'nickname'],
+        }]
+      }]
+    });
+    if (!group) {
+      return ctx.apiFail('该群聊不存在或者已被封禁');
+    }
+    // 你是否是该群成员
+    let index = group.group_users.findIndex(item => item.user_id === current_user_id);
+    if (index === -1) {
+      return ctx.apiFail('你不是该群成员');
+    }
+    // 验证是否是群主
+    if (group.user_id !== current_user_id) {
+      return ctx.apiFail('你不是管理员，没有权限');
+    }
+    // 不能踢自己
+    if (user_id === current_user_id) {
+      return ctx.apiFail('不能踢自己');
+    }
+    // 对方不是该群成员
+    let index2 = group.group_users.findIndex(item => item.user_id === user_id);
+    if (index2 === -1) {
+      return ctx.apiFail('对方不是该群成员');
+    }
+    let kickname = group.group_users[index2].nickname || group.group_users[index2].user.nickname || group.group_users[index2].user.username;
+    // 踢出该群
+    await app.model.GroupUser.destroy({
+      where: {
+        user_id: user_id,
+        group_id: group.id
+      }
+    });
+    // 返回成功
+    ctx.apiSuccess('ok');
+    // 构建消息格式
+    let from_name = group.group_users[index].nickname || ctx.authUser.nickname || ctx.authUser.username;
+    let message = {
+      id: (new Date()).getTime(), // 唯一id，后端生成唯一id
+      from_avatar: ctx.authUser.avatar,// 发送者头像
+      from_name, // 发送者昵称
+      from_id: current_user_id, // 发送者id
+      to_id: group.id, // 接收人/群 id
+      to_name: group.name, // 接收人/群 名称
+      to_avatar: group.avatar, // 接收人/群 头像
+      chat_type: 'group', // 接收类型
+      type: "system",// 消息类型
+      data: `${from_name} 将 ${kickname} 移出群聊`, // 消息内容
+      options: {}, // 其他参数
+      create_time: (new Date()).getTime(), // 创建时间
+      isremove: 0, // 是否撤回
+      group: group
+    }
+    // 消息推送
+    group.group_users.forEach(item => {
+      ctx.sendAndSaveMessage(item.user_id, message);
+    });
+  }
+
+  // 邀请加入群聊
+  async invite() {
+    const { ctx, app } = this;
+    let current_user_id = ctx.authUser.id;
+    // 参数验证
+    ctx.validate({
+      id: {
+        required: true,
+        type: 'int',
+        desc: "群组id"
+      },
+      user_id: {
+        required: true,
+        type: 'int',
+        desc: "用户id"
+      }
+    });
+    let { id, user_id } = ctx.request.body;
+    // 是否存在
+    let group = await app.model.Group.findOne({
+      where: {
+        id,
+        status: 1
+      },
+      include: [{
+        model: app.model.GroupUser,
+        attributes: ['user_id', 'nickname'],
+        include: [{
+          model: app.model.User,
+          attributes: ['username', 'nickname'],
+        }]
+      }]
+    });
+    if (!group) {
+      return ctx.apiFail('该群聊不存在或者已被封禁');
+    }
+    // 你是否是该群成员
+    let index = group.group_users.findIndex(item => item.user_id === current_user_id);
+    if (index === -1) {
+      return ctx.apiFail('你不是该群成员');
+    }
+    // 对方已经是该群成员
+    let index2 = group.group_users.findIndex(item => item.user_id === user_id);
+    if (index2 !== -1) {
+      return ctx.apiFail('对方已经是该群成员');
+    }
+    // 对方是否存在
+    let user = await app.model.User.findOne({
+      where: {
+        id: user_id,
+        status: 1
+      }
+    });
+    if (!user) {
+      return ctx.apiFail('对方不存在或者已被封禁');
+    }
+    let invitename = user.nickname || user.username;
+    // 加入该群
+    await app.model.GroupUser.create({
+      user_id: user_id,
+      group_id: group.id
+    });
+    // 返回成功
+    ctx.apiSuccess('ok');
+    // 构建消息格式
+    let from_name = group.group_users[index].nickname || ctx.authUser.nickname || ctx.authUser.username;
+    let message = {
+      id: (new Date()).getTime(), // 唯一id，后端生成唯一id
+      from_avatar: ctx.authUser.avatar,// 发送者头像
+      from_name, // 发送者昵称
+      from_id: current_user_id, // 发送者id
+      to_id: group.id, // 接收人/群 id
+      to_name: group.name, // 接收人/群 名称
+      to_avatar: group.avatar, // 接收人/群 头像
+      chat_type: 'group', // 接收类型
+      type: "system",// 消息类型
+      data: `${from_name} 邀请 ${invitename} 加入群聊`, // 消息内容
+      options: {}, // 其他参数
+      create_time: (new Date()).getTime(), // 创建时间
+      isremove: 0, // 是否撤回
+      group: group
+    }
+    // 消息推送
+    group.group_users.forEach(item => {
+      ctx.sendAndSaveMessage(item.user_id, message);
+    });
+  }
+
+  // 加入群聊
+  async join() {
+    const { ctx, app } = this;
+    let current_user_id = ctx.authUser.id;
+    // 参数验证
+    ctx.validate({
+      id: {
+        required: true,
+        type: 'int',
+        desc: "群组id"
+      },
+    });
+    let { id } = ctx.request.body;
+    // 是否存在
+    let group = await app.model.Group.findOne({
+      where: {
+        id,
+        status: 1
+      },
+      include: [{
+        model: app.model.GroupUser,
+        attributes: ['user_id', 'nickname'],
+        include: [{
+          model: app.model.User,
+          attributes: ['username', 'nickname'],
+        }]
+      }]
+    });
+    if (!group) {
+      return ctx.apiFail('该群聊不存在或者已被封禁');
+    }
+    // 你是否是该群成员
+    let index = group.group_users.findIndex(item => item.user_id === current_user_id);
+    if (index !== -1) {
+      return ctx.apiFail('你已经是该群成员');
+    }
+    // 加入该群
+    await app.model.GroupUser.create({
+      user_id: current_user_id,
+      group_id: group.id
+    });
+    // 返回成功
+    ctx.apiSuccess('ok');
+    // 构建消息格式
+    let from_name = ctx.authUser.nickname || ctx.authUser.username;
+    let message = {
+      id: (new Date()).getTime(), // 唯一id，后端生成唯一id
+      from_avatar: ctx.authUser.avatar,// 发送者头像
+      from_name, // 发送者昵称
+      from_id: current_user_id, // 发送者id
+      to_id: group.id, // 接收人/群 id
+      to_name: group.name, // 接收人/群 名称
+      to_avatar: group.avatar, // 接收人/群 头像
+      chat_type: 'group', // 接收类型
+      type: "system",// 消息类型
+      data: `${from_name} 加入群聊`, // 消息内容
+      options: {}, // 其他参数
+      create_time: (new Date()).getTime(), // 创建时间
+      isremove: 0, // 是否撤回
+      group: group
+    }
+    // 消息推送
+    group.group_users.forEach(item => {
+      ctx.sendAndSaveMessage(item.user_id, message);
+    });
+
+    ctx.sendAndSaveMessage(current_user_id, message);
+  }
+
+  async checkrelation() {
+    const { ctx, app } = this;
+    let current_user_id = ctx.authUser.id;
+    // 验证参数
+    ctx.validate({
+      id: {
+        required: true,
+        type: 'int',
+        desc: "群组id"
+      }
+    });
+    let id = ctx.request.body.id;
+    // 群组是否存在
+    let group = await app.model.Group.findOne({
+      where: {
+        status: 1,
+        id
+      },
+      include: [{
+        model: app.model.GroupUser,
+        attributes: ['user_id', 'nickname'],
+        include: [{
+          model: app.model.User,
+          attributes: ['id', 'nickname', 'avatar', 'username']
+        }]
+      }]
+    });
+
+    if (!group) {
+      return ctx.apiFail('该群聊不存在或者已被封禁');
+    }
+
+    // 当前用户是否是该群成员
+    let index = group.group_users.findIndex(item => item.user_id === current_user_id);
+    if (index === -1) {
+      return ctx.apiSuccess({
+        status: false,
+        group: {
+          id: group.id,
+          name: group.name,
+          avatar: group.avatar,
+          users_count: group.group_users.length,
+        }
+      });
+    }
+
+    ctx.apiSuccess({
+      status: true,
+      group: {
+        id: group.id,
+        name: group.name,
+        avatar: group.avatar,
+        users_count: group.group_users.length,
+      }
+    });
   }
 }
 

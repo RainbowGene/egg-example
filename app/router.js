@@ -135,4 +135,14 @@ module.exports = app => {
   router.get('/moment_timeline/:page', controller.moment.timeline);
   // 我的朋友圈列表
   router.get('/moment/:page', controller.moment.list);
+  // 将某个群成员踢出
+  router.post('/group/kickoff', controller.group.kickoff);
+  // 邀请加入群聊
+  router.post('/group/invite', controller.group.invite);
+  // 标签列表
+  router.get('/tag/list', controller.tag.list);
+  // 标签用户列表
+  router.get('/tag/read/:id', controller.tag.read);
+
+
 };
