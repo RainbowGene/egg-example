@@ -202,12 +202,12 @@ class ChatController extends Controller {
     let current_user_id = ctx.authUser.id;
     let key = 'getmessage_' + current_user_id;
     let list = await service.cache.getList(key);
-    // 清除离线消息  
+    // 清除离线消息
     await service.cache.remove(key);
     // 消息推送
     list.forEach(async msg => {
-      msg = JSON.parse(msg);
-      ctx.sendAndSaveMessage(current_user_id, msg)
+      let data = JSON.parse(msg);
+      ctx.sendAndSaveMessage(current_user_id, data.message, data.msg)
     })
   }
 

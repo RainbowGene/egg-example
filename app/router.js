@@ -131,4 +131,8 @@ module.exports = app => {
   router.post('/moment/like', controller.moment.like);
   // 评论朋友圈
   router.post('/moment/comment', controller.moment.comment);
+  // 朋友圈列表
+  router.get('/moment_timeline/:page', controller.moment.timeline);
+  // 我的朋友圈列表
+  router.get('/moment/:page', controller.moment.list);
 };

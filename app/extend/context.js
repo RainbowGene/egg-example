@@ -47,10 +47,12 @@ module.exports = {
         data: message
       }))
       // 存到服务器历史记录(便于查询用户是否违规)
-      service.cache.setList(`chatlog_${to_id}_${message.chat_type}_${current_user_id}`, message)
+      if (msg === 'ok') { // 聊天消息才加入
+        service.cache.setList(`chatlog_${to_id}_${message.chat_type}_${current_user_id}`, message)
+      }
     }
     else {
-      this.service.cache.setList('getmessage_' + to_id, message);
+      this.service.cache.setList('getmessage_' + to_id, { message, msg });
     }
     // 存到自己的历时记录
     service.cache.setList(`chatlog_${current_user_id}_${message.chat_type}_${to_id}`, message)

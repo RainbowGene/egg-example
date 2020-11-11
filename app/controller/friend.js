@@ -305,6 +305,27 @@ class FriendController extends Controller {
       }
     });
   }
+
+  // 删除非好友的朋友圈时间轴记录
+  async deleteTimeLineMoment(friend_id, user_id) {
+    const { app, ctx } = this;
+
+    let moments = await app.model.Moment.findAll({
+      where: {
+        user_id: friend_id
+      },
+      attributes: ['id']
+    });
+
+    moments = moments.map(item => item.id);
+
+    await app.model.MomentTimeline.destroy({
+      where: {
+        user_id,
+        moment_id: moments
+      }
+    });
+  }
 }
 
 module.exports = FriendController;

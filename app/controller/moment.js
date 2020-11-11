@@ -139,16 +139,16 @@ class MomentController extends Controller {
     });
 
     // 提醒用户
-    // if (moment.remind) {
-    //   let arr = moment.remind.split(',');
-    //   arr.forEach(user_id => {
-    //     ctx.sendAndSaveMessage(user_id, {
-    //       avatar: ctx.authUser.avatar,
-    //       user_id: current_user_id,
-    //       type: "remind"
-    //     }, 'moment');
-    //   });
-    // }
+    if (moment.remind) {
+      let arr = moment.remind.split(',');
+      arr.forEach(user_id => {
+        ctx.sendAndSaveMessage(user_id, {
+          avatar: ctx.authUser.avatar,
+          user_id: current_user_id,
+          type: "remind"
+        }, 'moment');
+      });
+    }
   }
 
   // 点赞
@@ -431,6 +431,163 @@ class MomentController extends Controller {
     ctx.apiSuccess(res);
   }
 
+  // 某个用户的朋友圈列表
+  async list() {
+    const { ctx, app } = this;
+    let current_user_id = ctx.authUser.id;
+
+    let page = ctx.params.page ? parseInt(ctx.params.page) : 1;
+    let limit = ctx.query.limit ? parseInt(ctx.query.limit) : 10;
+    let offset = (page - 1) * limit;
+    let user_id = ctx.query.user_id ? parseInt(ctx.query.user_id) : 0;
+    // ctx.validate({
+    //     user_id: {
+    //         type: "int",
+    //         required: false,
+    //         defValue: current_user_id,
+    //         desc: "用户id"
+    //     }
+    // });
+
+    let lookIds = [];
+
+    if (!user_id) {
+      // 本人
+      user_id = current_user_id;
+      lookIds = false;
+    } else {
+      // 验证我是否具备权限
+      let f = await app.model.User.findOne({
+        where: {
+          id: user_id,
+          status: 1
+        },
+        attributes: ['id', 'nickname', 'username', 'avatar'],
+        include: [{
+          model: app.model.Friend,
+          as: "bfriends",
+          where: {
+            user_id: current_user_id
+          },
+          attributes: ['lookhim', 'isblack']
+        }, {
+          model: app.model.Friend,
+          as: "friends",
+          where: {
+            friend_id: current_user_id
+          },
+          attributes: ['lookme', 'isblack']
+        }]
+      });
+
+      // 用户是否存在
+      if (!f) {
+        return ctx.apiFail('用户不存在或已被禁用');
+      }
+      // 是否是好友关系
+      if (!f.bfriends.length || !f.friends.length) {
+        return ctx.apiSuccess([]);
+      }
+      // 不可见
+      if (f.bfriends[0].isblack || f.friends[0].isblack || !f.bfriends[0].lookhim || !f.friends[0].lookme) {
+        return ctx.apiSuccess([]);
+      }
+      // 获取当前用户所有好友（查找共同好友）
+      let friends = await app.model.Friend.findAll({
+        where: {
+          user_id: current_user_id,
+          isblack: 0
+        },
+        attributes: ['friend_id']
+      });
+
+      lookIds = friends.map(item => item.friend_id);
+
+    }
+
+    let rows = await app.model.Moment.findAll({
+      where: {
+        user_id
+      },
+      include: [{
+        model: app.model.User,
+        attributes: ['id', 'nickname', 'username', 'avatar']
+      }, {
+        model: app.model.MomentComment,
+        attributes: {
+          exclude: ['created_at', 'updated_at']
+        },
+        include: [{
+          model: app.model.User,
+          as: "momentCommentUser",
+          attributes: ['id', 'nickname', 'username']
+        }, {
+          model: app.model.User,
+          as: "momentCommentReply",
+          attributes: ['id', 'nickname', 'username']
+        }]
+      }, {
+        model: app.model.MomentLike,
+        attributes: ['user_id', 'moment_id'],
+        include: [{
+          model: app.model.User,
+          attributes: ['id', 'nickname', 'username']
+        }]
+      }],
+      offset,
+      limit,
+      order: [
+        ['id', 'DESC']
+      ]
+    });
+
+    let res = [];
+    rows.forEach(item => {
+      let comments = [];
+      item.moment_comments.forEach(v => {
+        if (!lookIds || lookIds.includes(v.momentCommentUser.id) || v.momentCommentUser.id === current_user_id) {
+          comments.push({
+            content: v.content,
+            user: {
+              id: v.momentCommentUser.id,
+              name: v.momentCommentUser.nickname || v.momentCommentUser.username
+            },
+            reply: v.momentCommentReply ? {
+              id: v.momentCommentReply.id,
+              name: v.momentCommentReply.nickname || v.momentCommentReply.username
+            } : null
+          })
+        }
+      });
+
+      let likes = [];
+      item.moment_likes.forEach(v => {
+        if (!lookIds || lookIds.includes(v.user.id) || v.user.id === current_user_id) {
+          likes.push({
+            id: v.user.id,
+            name: v.user.nickname || v.user.username
+          });
+        }
+      });
+
+      res.push({
+        user_id: item.user_id,
+        user_name: item.user.nickname || item.user.username,
+        avatar: item.user.avatar,
+        moment_id: item.id,
+        content: item.content,
+        image: item.image ? item.image.split(',') : [],
+        video: item.video ? JSON.parse(item.video) : null,
+        location: item.location,
+        own: 1,
+        created_at: item.created_at,
+        comments,
+        likes
+      });
+    });
+
+    ctx.apiSuccess(res);
+  }
 }
 
 module.exports = MomentController;
