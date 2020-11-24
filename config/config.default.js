@@ -107,8 +107,8 @@ module.exports = appInfo => {
   // oss存储
   config.oss = {
     client: {
-      accessKeyId: 'LTAI4G1qkfCPaGKzp87guzoW',
-      accessKeySecret: 'XdgnmrSsJFuRaN17jhkAwpAw5Uvsdb',
+      accessKeyId: '**',
+      accessKeySecret: '**',
       bucket: 'egg-uniapp-foxxin',
       endpoint: 'oss-cn-shenzhen.aliyuncs.com',
       timeout: '60s'
