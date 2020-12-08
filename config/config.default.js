@@ -110,7 +110,7 @@ module.exports = appInfo => {
       accessKeyId: '**',
       accessKeySecret: '**',
       bucket: 'egg-uniapp-foxxin',
-      endpoint: 'oss-cn-shenzhen.aliyuncs.com',
+      endpoint: '***',
       timeout: '60s'
     }
   }
